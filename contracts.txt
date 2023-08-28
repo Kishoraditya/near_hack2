@@ -1,0 +1,281 @@
+ProfileNFT.rs
+use near_contract_standards::non_fungible_token::metadata::{
+  NFTContractMetadata, NonFungibleTokenMetadataProvider, TokenMetadata, NFT_METADATA_SPEC,
+};
+use near_contract_standards::non_fungible_token::{NonFungibleToken, TokenId};
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::collections::LazyOption;
+use near_sdk::json_types::ValidAccountId;
+use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::{env, near_bindgen, AccountId, Balance, PanicOnDefault, Promise};
+
+near_contract_standards::impl_non_fungible_token_core!(ProfileNFT, tokens);
+near_contract_standards::impl_non_fungible_token_approval!(ProfileNFT, tokens);
+near_contract_standards::impl_non_fungible_token_enumeration!(ProfileNFT, tokens);
+
+#[near_bindgen]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+pub struct ProfileNFT {
+  tokens: NonFungibleToken,
+  metadata: LazyOption<NFTContractMetadata>,
+  // other fields
+}
+
+// Structs for revenue distribution 
+// and refund logic
+
+#[near_bindgen]
+impl ProfileNFT {
+  
+  #[init]
+  pub fn new() -> Self {
+    // Initialize NFT with specified metadata
+  }
+
+  pub fn nft_mint(&mut self, token_metadata: TokenMetadata) -> TokenId {
+    // Mint NFT
+  }
+
+  pub fn nft_transfer(&mut self, receiver_id: AccountId, token_id: TokenId) {
+    // Transfer NFT  
+  }
+
+  pub fn buy_access(&mut self, token_id: TokenId, price: U128) {
+    // Transfer NFT after payment
+    // Schedule refund
+    // Distribute revenue
+  }
+
+}
+
+// lib.rs
+
+use crate::revenue::{distribute_revenue, record_revenue};
+use crate::jobsmarket::{post_job, get_jobs}; 
+use crate::profilenft::ProfileNFT;
+
+#[near_bindgen]
+pub struct Contract {
+   // state
+}
+
+impl Contract {
+
+  pub fn buy_access(&mut self, token_id: TokenId, price: U128) {
+    let nft = ProfileNFT::nft_transfer(token_id);
+    record_revenue(nft, price);
+    distribute_revenue(nft);
+  }
+
+  pub fn post_new_job(&mut self, job: JobPost) {
+    post_job(job);
+  }
+
+  // other facade methods
+}
+
+
+// revenue.rs
+
+use crate::profilenft::{NFTContract, TokenId};
+
+struct RevenueShare {
+  // revenue split percentages  
+}
+
+impl RevenueShare {
+  pub fn record_revenue(&mut self, nft: NFTContract, price: U128) {
+    // record purchase in mapping
+  }
+
+  pub fn distribute_revenue(&mut self, nft: NFTContract) {
+    // distribute to stakeholders
+  } 
+}
+
+
+// jobsmarket.rs
+
+use near_sdk::collections::LookupMap;
+
+struct JobPost {
+  // job details
+}
+
+#[near_bindgen]
+pub struct JobsMarket {
+  jobs: LookupMap<u64, JobPost>  
+}
+
+impl JobsMarket {
+  
+  pub fn post_job(&mut self, job: JobPost) {
+    // save job 
+  }
+
+  pub fn get_jobs(&self) -> Vec<JobPost> {
+    // return posted jobs
+  }
+
+}
+
+UserOrofile.rs
+
+use near_sdk::{near_bindgen, env, Promise};
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::collections::UnorderedMap;
+use near_sdk::json_types::U128;
+use ceramic_sdk::{Ceramic, Document, DocumentOpts};
+import { CeramicClient } from '@ceramicnetwork/http-client'
+
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+
+#[near_bindgen]
+#[derive(BorshSerialize, BorshDeserialize)]
+pub struct UserProfile {
+    profiles: UnorderedMap<AccountId, Profile>,
+}
+
+#[near_bindgen]
+impl UserProfile {
+    pub fn set_profile(&mut self, profile_data: String) {
+        let account_id = env::signer_account_id();
+        let mut profile = self.profiles.get(&account_id).unwrap_or_else(|| Profile::default());
+
+        // Store on-chain data
+        profile.on_chain_data = profile_data.clone();
+
+        // Store off-chain data using Ceramic
+        let ceramic = Ceramic::new("YOUR_CERAMIC_API_URL");
+        let doc = Document::from_json(
+            &ceramic,
+            &DocumentOpts::new().controller(&account_id),
+            json!({ "off_chain_data": profile_data }),
+        )
+        .expect("Failed to create Ceramic document");
+
+        profile.off_chain_doc_id = doc.id().to_string();
+
+        self.profiles.insert(&account_id, &profile);
+    }
+
+    pub fn get_profile(&self, account_id: AccountId) -> Option<Profile> {
+        self.profiles.get(&account_id)
+    }
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Default)]
+pub struct Profile {
+    on_chain_data: String,
+    off_chain_doc_id: String,
+}
+
+impl Profile {
+    pub fn off_chain_data(&self) -> String {
+        if !self.off_chain_doc_id.is_empty() {
+            let ceramic = Ceramic::new("YOUR_CERAMIC_API_URL");
+            let doc = Document::load(&ceramic, self.off_chain_doc_id.clone())
+                .expect("Failed to load Ceramic document");
+            if let Some(data) = doc.content().get("off_chain_data") {
+                return data.as_str().unwrap_or("").to_string();
+            }
+        }
+        String::new()
+    }
+}
+
+
+UserRegistry.rs 
+use near_sdk::{near_bindgen, env};
+use near_sdk::collections::UnorderedMap;
+
+#[near_bindgen]
+struct UserRegistry {
+    users: UnorderedMap<AccountId, UserInfo>,
+}
+
+#[near_bindgen]
+impl UserRegistry {
+    pub fn register_user(&mut self, user_id: AccountId, user_type: UserType, ceramic_id: String) {
+        let user_info = UserInfo {
+            user_type,
+            ceramic_id,
+            // other user-related data
+        };
+        self.users.insert(&user_id, &user_info);
+    }
+
+    pub fn login_user(&self, user_id: AccountId) -> Option<UserInfo> {
+        self.users.get(&user_id)
+    }
+}
+
+#[near_bindgen]
+struct UserInfo {
+    user_type: UserType,
+    ceramic_id: String,
+    // other user-related data
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum UserType {
+    User,
+    Company,
+    // other user types
+}
+
+
+My current contract folder structure is 
+my-dapp/contract/
+--src/
+----JobsMarket.rs
+----lib.rs
+----ProfileNFT.rs
+----Revenue.rs
+----UserProfile.rs
+----UserRegistry.rs
+--target/
+----release/
+----wasm32-unknown-unknown/
+----.rustuc_info.json
+--build.sh
+--Cargo.toml
+--deploy.sh
+--README.md
+my-dapp/frontend
+--index.html
+--package.json
+--start.sh
+--src
+----index.js
+----App.js
+----assets/
+----components/
+------JobAppForm.js
+------JobList.js
+------Navigation.js
+------ProfileNFT.js
+------ui-components.js
+------Wallet.js
+----contract/
+------JobMarket.js
+------profileNFT.js
+------userProfile.js
+------userRegistry.js
+----pages/
+------CreateProfile.js
+------JobDetails.js
+------Jobs.js
+------Profile.js
+------SignUp.js
+----styles/
+------stylesheet.css
+----utils/
+------ceramic.js
+------near-wallet.js
+------near.js
+my-dapp/integration-tests/
+my-dapp/.env
+my-dapp/package.json
+my-dapp/rust-toolchain.toml

@@ -1,0 +1,1 @@
+{"version":"1.0.0","name":"my-dapp","dependencies":{"@ceramicnetwork/cli":{"version":"2.37.0"},"go-ipfs":{"version":"0.14.0"},"ipfs":{"version":"0.14.3"}}}

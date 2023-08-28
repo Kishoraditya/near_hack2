@@ -1,0 +1,1 @@
+near_sdk::collections::LookupMap<u64, JobPost>
